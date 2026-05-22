@@ -1,75 +1,107 @@
-name: Build re3 iOS IPA
+name: Build Complete re3 iOS IPA (v2)
 
 on:
-  workflow_dispatch: # এর মাধ্যমে আপনি গিটহাব ওয়েবসাইট থেকে ম্যানুয়ালি বিল্ড স্টার্ট করতে পারবেন
+  workflow_dispatch:
 
 jobs:
-  build-ios:
-    runs-on: macos-14 # গিটহাবের ক্লাউড ম্যাক ওএস (M1/M2/M3 আর্কিটেকচার)
-    
+  build-and-pack:
+    runs-on: macos-14 # সম্পূর্ণ Xcode এনভায়রনমেন্টের জন্য ম্যাক ওএস ক্লাউড ব্যবহার
+
     steps:
-      # ১. রিপোজিটরি এবং সমস্ত সাব-মডিউল (যেমন: librw) একসাথে ক্লোন ও চেকআউট করা
-      - name: Checkout Source Code with Submodules
+      # ১. মূল iOS সোর্স কোড এবং সাব-মডিউল ক্লোন করা
+      - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
-          repository: 'halalwahed/re3' # iOS স্পেসিফিক পোর্ট
+          repository: 'halalwahed/re3'
           submodules: 'recursive'
           fetch-depth: 1
 
-      # ২. বিল্ড করার জন্য প্রয়োজনীয় সিস্টেম টুলস (CMake) চেক ও ইনস্টল করা
-      - name: Setup Build Environment
+      # ২. সিস্টেমে বিল্ড টুলস ও ডিপেন্ডেন্সি রেডি করা
+      - name: Install Build Tools
         run: |
-          echo "Checking CMake installation..."
           brew install cmake ninja
 
-      # ৩. সিস্টেমে Xcode এর সঠিক ভার্সন সিলেক্ট করা
-      - name: Select Xcode Version
+      # ৩. সঠিক Xcode ভার্সন এবং SDK পাথ নিশ্চিত করা
+      - name: Select Xcode and Setup SDK
         run: |
           sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
-          xcodebuild -version
+          echo "SDK PATH:"
+          xcrun --sdk iphoneos --show-sdk-path
 
-      # ৪. CMake দিয়ে iOS আর্কিটেকচারের (arm64) জন্য Xcode প্রজেক্ট জেনারেট করা
-      - name: Generate Xcode Project via CMake
+      # ৪. CMake দিয়ে সম্পূর্ণ Xcode Workspace/Project (.xcodeproj) জেনারেট করা
+      # এখানে আমরা অডিও, ফ্ল্যাক এবং iOS রিসোর্স কম্পিলিয়েশন এনাবল করছি
+      - name: Configure CMake for iOS
         run: |
-          mkdir build
-          cd build
+          mkdir build && cd build
           cmake .. -G Xcode \
             -DCMAKE_TOOLCHAIN_FILE=../cmake/ios.toolchain.cmake \
             -DPLATFORM=OS64 \
             -DRE3_AUDIO=ON \
-            -DRE3_FLAC=ON
+            -DRE3_FLAC=ON \
+            -DRE3_INSTALL_ASSETS=ON
 
-      # ৫. কোড কম্পাইল এবং ভেরিফিকেশন (কোড সাইনিং ছাড়া ট্রলস্টোর/আল্টস্টোরের জন্য বিল্ড)
-      - name: Compile and Build Binaries
+      # ৫. Xcode Archive তৈরি করা (এটি কোড, আইকন, প্লাগইন ও ইন্টারফেস একসাথে কম্পাইল করে)
+      # Ad-Hoc সাইনিং মোডে বিল্ড করা হচ্ছে যাতে আল্টস্টোর বা সাইডলোডলি একে পরে সাইন করতে পারে
+      - name: Build Xcode Archive
         run: |
           cd build
-          xcodebuild -project re3.xcodeproj \
-                     -scheme re3 \
-                     -configuration Release \
-                     -sdk iphoneos \
-                     CODE_SIGNING_ALLOWED=NO \
-                     CODE_SIGNING_REQUIRED=NO \
-                     clean build
+          xcodebuild archive \
+            -project re3.xcodeproj \
+            -scheme re3 \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath ./re3.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER=""
 
-      # ৬. আইপিএ (.ipa) ফাইলের জন্য নির্দিষ্ট স্ট্রাকচার তৈরি, পার্ট ফাইল কপি ও অ্যাড করা
-      - name: Structure and Package IPA
+      # ৬. এক্সপোর্ট অপশন কনফিগার করা (Xcode কে আইপিএ বানানোর জন্য এই ফাইলটি দিতে হয়)
+      - name: Create Export Options Plist
         run: |
-          # Payload ফোল্ডার তৈরি (iOS অ্যাপের স্ট্যান্ডার্ড ফরম্যাট)
-          mkdir -p Payload/re3.app
-          
-          # কম্পাইল হওয়া বাইনারি এবং সোর্স ফাইলগুলো কপি করা
-          cp -R build/Release-iphoneos/re3.app/ Payload/re3.app/
-          
-          # অ্যাপের ইনফো এবং আইকন ভেরিফাই করা
-          cp src/core/ios/Info.plist Payload/re3.app/ 2>/dev/null || true
-          
-          # আল্টস্টোর/সাইডলোডলির জন্য ফেক বা অ্যাড-হক সাইনিং ভেরিফিকেশন (প্রয়োজন সাপেক্ষে)
-          # সম্পূর্ণ ফোল্ডারটিকে .ipa ফরম্যাটে জিপ (Zip) করা
-          zip -r re3-ios-unsigned.ipa Payload
+          cat <<EOF > build/ExportOptions.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>ad-hoc</string>
+              <key>compileBitcode</key>
+              <false/>
+              <key>thinning</key>
+              <string>&lt;none&gt;</string>
+          </dict>
+          </plist>
+          EOF
 
-      # ৭. তৈরি হওয়া ফাইনাল .ipa ফাইলটি গিটহাবে আপলোড করা (যাতে আপনি ডাউনলোড করতে পারেন)
-      - name: Upload Finished IPA Artifact
-        uses: actions/actions-artifact@v3
+      # ৭. .xcarchive থেকে অফিসিয়াল এবং স্ট্রাকচার্ড .ipa ফাইল এক্সপোর্ট করা
+      # এটি স্বয়ংক্রিয়ভাবে Payload ফোল্ডার তৈরি করবে এবং ভেতরের ফাইল ভেরিফাই করবে
+      - name: Export IPA Package
+        run: |
+          cd build
+          xcodebuild -exportArchive \
+            -archivePath ./re3.xcarchive \
+            -exportPath ./ExportedIPA \
+            -exportOptionsPlist ./ExportOptions.plist \
+            CODE_SIGNING_ALLOWED=NO
+
+      # ৮. ফাইলগুলোর নাম ঠিক করা এবং আল্ট সাইডলোডের জন্য প্রস্তুত করা
+      - name: Verify and Prepare Final IPA
+        run: |
+          cd build/ExportedIPA
+          # এক্সপোর্ট হওয়া অ্যাপের ফাইল স্ট্রাকচার ঠিক করা
+          if [ -f "re3.ipa" ]; then
+            mv re3.ipa ../../re3-ios-final.ipa
+          else
+            # বিকল্প ব্যাকআপ পদ্ধতি (যদি কোনো কারণে ডিরেক্ট এক্সপোর্ট না হয়)
+            mkdir -p Payload
+            cp -R ../re3.xcarchive/Products/Applications/re3.app Payload/
+            zip -r ../../re3-ios-final.ipa Payload
+          fi
+
+      # ৯. রেডি হওয়া ফাইনাল .ipa ফাইলটি গিটহাবে আপলোড করা
+      - name: Upload Production IPA
+        uses: actions/upload-artifact@v4
         with:
-          name: re3-iOS-Unsigned-IPA
-          path: re3-ios-unsigned.ipa
+          name: re3-iOS-Final-IPA
+          path: re3-ios-final.ipa
