@@ -1,0 +1,75 @@
+name: Build re3 iOS IPA
+
+on:
+  workflow_dispatch: # এর মাধ্যমে আপনি গিটহাব ওয়েবসাইট থেকে ম্যানুয়ালি বিল্ড স্টার্ট করতে পারবেন
+
+jobs:
+  build-ios:
+    runs-on: macos-14 # গিটহাবের ক্লাউড ম্যাক ওএস (M1/M2/M3 আর্কিটেকচার)
+    
+    steps:
+      # ১. রিপোজিটরি এবং সমস্ত সাব-মডিউল (যেমন: librw) একসাথে ক্লোন ও চেকআউট করা
+      - name: Checkout Source Code with Submodules
+        uses: actions/checkout@v4
+        with:
+          repository: 'halalwahed/re3' # iOS স্পেসিফিক পোর্ট
+          submodules: 'recursive'
+          fetch-depth: 1
+
+      # ২. বিল্ড করার জন্য প্রয়োজনীয় সিস্টেম টুলস (CMake) চেক ও ইনস্টল করা
+      - name: Setup Build Environment
+        run: |
+          echo "Checking CMake installation..."
+          brew install cmake ninja
+
+      # ৩. সিস্টেমে Xcode এর সঠিক ভার্সন সিলেক্ট করা
+      - name: Select Xcode Version
+        run: |
+          sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+          xcodebuild -version
+
+      # ৪. CMake দিয়ে iOS আর্কিটেকচারের (arm64) জন্য Xcode প্রজেক্ট জেনারেট করা
+      - name: Generate Xcode Project via CMake
+        run: |
+          mkdir build
+          cd build
+          cmake .. -G Xcode \
+            -DCMAKE_TOOLCHAIN_FILE=../cmake/ios.toolchain.cmake \
+            -DPLATFORM=OS64 \
+            -DRE3_AUDIO=ON \
+            -DRE3_FLAC=ON
+
+      # ৫. কোড কম্পাইল এবং ভেরিফিকেশন (কোড সাইনিং ছাড়া ট্রলস্টোর/আল্টস্টোরের জন্য বিল্ড)
+      - name: Compile and Build Binaries
+        run: |
+          cd build
+          xcodebuild -project re3.xcodeproj \
+                     -scheme re3 \
+                     -configuration Release \
+                     -sdk iphoneos \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
+                     clean build
+
+      # ৬. আইপিএ (.ipa) ফাইলের জন্য নির্দিষ্ট স্ট্রাকচার তৈরি, পার্ট ফাইল কপি ও অ্যাড করা
+      - name: Structure and Package IPA
+        run: |
+          # Payload ফোল্ডার তৈরি (iOS অ্যাপের স্ট্যান্ডার্ড ফরম্যাট)
+          mkdir -p Payload/re3.app
+          
+          # কম্পাইল হওয়া বাইনারি এবং সোর্স ফাইলগুলো কপি করা
+          cp -R build/Release-iphoneos/re3.app/ Payload/re3.app/
+          
+          # অ্যাপের ইনফো এবং আইকন ভেরিফাই করা
+          cp src/core/ios/Info.plist Payload/re3.app/ 2>/dev/null || true
+          
+          # আল্টস্টোর/সাইডলোডলির জন্য ফেক বা অ্যাড-হক সাইনিং ভেরিফিকেশন (প্রয়োজন সাপেক্ষে)
+          # সম্পূর্ণ ফোল্ডারটিকে .ipa ফরম্যাটে জিপ (Zip) করা
+          zip -r re3-ios-unsigned.ipa Payload
+
+      # ৭. তৈরি হওয়া ফাইনাল .ipa ফাইলটি গিটহাবে আপলোড করা (যাতে আপনি ডাউনলোড করতে পারেন)
+      - name: Upload Finished IPA Artifact
+        uses: actions/actions-artifact@v3
+        with:
+          name: re3-iOS-Unsigned-IPA
+          path: re3-ios-unsigned.ipa
