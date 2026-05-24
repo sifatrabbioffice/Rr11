@@ -1,0 +1,597 @@
+Game_Development_iOS_Complete_Learning_Guide:
+  version: "1.0"
+  duration: "8-12 weeks"
+  target: "Build your own open-world style game for iOS"
+  
+  # ============================================
+  # PHASE 0: SETUP & PREPARATION (Week 1)
+  # ============================================
+  Phase_0_Setup:
+    Week_1:
+      Day_1_Environment:
+        - Download Godot 4.2 (Free, Open-source)
+          url: "https://godotengine.org/download"
+          alternative: "Unity 2022 LTS (Free for learning)"
+        
+        - Install Xcode 15+
+          url: "https://developer.apple.com/download/xcode/"
+          size: "12-15 GB"
+        
+        - Install Git
+          command: "brew install git"
+        
+        - Create GitHub repo for your project
+          purpose: "Version control and learning portfolio"
+      
+      Day_2_Learn_Basics:
+        - Godot Engine Fundamentals
+          topics:
+            - Scene system
+            - Nodes and their hierarchy
+            - Signals (event system)
+            - Physics bodies (CharacterBody3D)
+            - GDScript basics
+          resource: "Godot Official Docs"
+          time: "6-8 hours"
+        
+        - Create your first scene:
+          - Load empty 3D scene
+          - Add player character (capsule shape)
+          - Add ground plane
+          - Add basic lighting
+      
+      Day_3_4_5_Basic_Gameplay:
+        - Implement player movement
+          code_structure:
+            - extends CharacterBody3D
+            - handle_input()
+            - physics_process()
+            - gravity and jumping
+          features:
+            - WASD movement
+            - Space to jump
+            - Mouse look
+            - Fall damage
+        
+        - Test on desktop first
+          command: "F5 in Godot editor"
+
+  # ============================================
+  # PHASE 1: CORE GAME MECHANICS (Week 2-3)
+  # ============================================
+  Phase_1_Core_Mechanics:
+    Week_2:
+      Day_1_Camera_System:
+        - First-person camera
+          script: |
+            extends Node3D
+            var camera: Camera3D
+            var mouse_sensitivity: float = 0.003
+            
+            func _ready():
+                camera = get_node("Camera3D")
+                Input.mouse_mode = Input.MOUSE_CAPTURED
+            
+            func _input(event):
+                if event is InputEventMouseMotion:
+                    rotate_y(-event.relative.x * mouse_sensitivity)
+                    camera.rotate_x(-event.relative.y * mouse_sensitivity)
+      
+      Day_2_Collision_System:
+        - Create collision shapes
+          types:
+            - BoxShape3D (buildings)
+            - CapsuleShape3D (player, NPCs)
+            - MeshCollider (terrain)
+        
+        - Test collision detection
+      
+      Day_3_4_5_World_Building:
+        - Create simple map
+          structures:
+            - 5-10 buildings (using boxshapes)
+            - Ground plane with texture
+            - Trees (simple cylinders)
+            - Street layout
+            - Water area
+        
+        - Load external models
+          format: "GLTF/GLB"
+          source: "Sketchfab free models"
+          import_in_godot: true
+
+    Week_3:
+      Day_1_2_NPC_System:
+        - Create NPC character controller
+          script_base: |
+            extends CharacterBody3D
+            class_name NPC
+            
+            var player: Node3D
+            var speed: float = 5.0
+            var detection_range: float = 20.0
+            var is_pursuing: bool = false
+            
+            func _ready():
+                player = get_tree().root.get_node("Player")
+            
+            func _physics_process(delta):
+                var distance_to_player = global_position.distance_to(player.global_position)
+                
+                if distance_to_player < detection_range:
+                    is_pursuing = true
+                    var direction = (player.global_position - global_position).normalized()
+                    velocity = direction * speed
+                else:
+                    velocity = Vector3.ZERO
+                
+                move_and_slide()
+        
+        - Spawn 5-10 NPCs in world
+      
+      Day_3_Inventory_System:
+        - Create basic inventory
+          items:
+            - weapons (sword, gun types)
+            - health potions
+            - ammo
+            - keys
+        
+        - UI panel to show inventory
+      
+      Day_4_5_Combat_System:
+        - Melee attack
+          mechanic: |
+            func attack():
+                var area = Area3D.new()
+                var shape = SphereShape3D.new()
+                shape.radius = 2.0
+                area.add_child(shape)
+                
+                var bodies = area.get_overlapping_bodies()
+                for body in bodies:
+                    if body.has_method("take_damage"):
+                        body.take_damage(10)
+        
+        - Ranged weapon (projectiles)
+          mechanics:
+            - Spawn projectile
+            - Add velocity
+            - Collision detection
+            - Despawn on hit
+
+  # ============================================
+  # PHASE 2: WORLD GENERATION & ASSETS (Week 4-5)
+  # ============================================
+  Phase_2_World_Building:
+    Week_4:
+      Day_1_Terrain_System:
+        - Use Godot's terrain tools
+          or_alternative: "CSGBox3D for building blocks"
+        
+        - Create varied elevation
+          features:
+            - Hills and valleys
+            - Water bodies
+            - Cliffs
+            - Flat city areas
+      
+      Day_2_3_Building_System:
+        - Modular building blocks
+          approach:
+          - Create base building module (CSGBox3D)
+          - Stack modules to create buildings
+          - Add doors and windows (mesh cutouts)
+          - Add collision shapes
+        
+        - Building spawner
+          script: |
+            var building_scene = preload("res://scenes/building.tscn")
+            
+            func spawn_building(position: Vector3, size: Vector3):
+                var building = building_scene.instantiate()
+                building.position = position
+                building.scale = size
+                add_child(building)
+      
+      Day_4_5_Asset_Management:
+        - Import free 3D models
+          sources:
+            - Sketchfab.com (free tier)
+            - Poly Haven (100% free)
+            - OpenGameArt.org
+        
+        - Optimize models
+          steps:
+            - Reduce polygon count
+            - Bake textures
+            - Set LOD (Level of Detail)
+            - Test performance
+
+    Week_5:
+      Day_1_2_Texturing:
+        - Add PBR textures
+          maps:
+            - Albedo (color)
+            - Normal (detail)
+            - Roughness
+            - Metallic
+        
+        - Apply to buildings and terrain
+      
+      Day_3_Lighting:
+        - Main directional light (sun)
+        - Point lights (street lamps)
+        - Ambient lighting
+        - Baked lighting for performance
+      
+      Day_4_5_Sound_Design:
+        - Background music
+        - Footstep sounds
+        - Combat sounds
+        - Ambient environment sounds
+
+  # ============================================
+  # PHASE 3: GAMEPLAY EXPANSION (Week 6-7)
+  # ============================================
+  Phase_3_Gameplay:
+    Week_6:
+      Day_1_Quest_System:
+        - Quest data structure
+          code: |
+            class_name Quest
+            var id: String
+            var title: String
+            var description: String
+            var objectives: Array[String]
+            var is_completed: bool = false
+            var reward_xp: int = 100
+        
+        - Quest manager
+        - Quest UI display
+        - Quest completion tracking
+      
+      Day_2_3_Dialogue_System:
+        - Dialogue tree structure (JSON)
+          format: |
+            {
+              "npc_name": "Guard",
+              "dialogues": [
+                {
+                  "id": 1,
+                  "text": "Stay away from the forbidden zone!",
+                  "options": [2, 3]
+                },
+                {
+                  "id": 2,
+                  "text": "Why?",
+                  "response": "Danger lurks there..."
+                }
+              ]
+            }
+        
+        - Dialogue UI panel
+        - Option selection system
+      
+      Day_4_5_AI_Behavior:
+        - Patrol system
+          code: |
+            var patrol_points: Array[Vector3] = []
+            var current_patrol_index: int = 0
+            
+            func patrol():
+                if patrol_points.is_empty():
+                    return
+                
+                var target = patrol_points[current_patrol_index]
+                var direction = (target - global_position).normalized()
+                velocity = direction * speed
+                
+                if global_position.distance_to(target) < 1.0:
+                    current_patrol_index = (current_patrol_index + 1) % patrol_points.size()
+        
+        - Idle animations
+        - Reaction to player
+
+    Week_7:
+      Day_1_2_Progression_System:
+        - Experience points (XP)
+        - Level system
+        - Skill trees
+        - Equipment upgrades
+      
+      Day_3_4_Save_System:
+        - Save game data (JSON)
+          data_to_save:
+            - Player position
+            - Inventory
+            - Completed quests
+            - Level/XP
+            - Map fog of war
+        
+        - Load game functionality
+        - Multiple save slots
+      
+      Day_5_Polish:
+        - Main menu
+        - Settings screen
+        - Pause menu
+        - HUD improvements
+
+  # ============================================
+  # PHASE 4: MOBILE OPTIMIZATION (Week 8)
+  # ============================================
+  Phase_4_Mobile_Optimization:
+    Week_8:
+      Day_1_Performance:
+        - Profile on desktop first
+          use: "Godot Profiler (Debug > Monitor)"
+        
+        - Optimize draw calls
+          techniques:
+            - Batch meshes
+            - Use LOD system
+            - Reduce shadow quality
+            - Optimize shaders
+        
+        - Target framerate: 60 FPS on mobile
+      
+      Day_2_Input_Adaptation:
+        - Replace mouse look with touch
+          code: |
+            func _input(event):
+                if event is InputEventScreenDrag:
+                    camera.rotate_y(-event.relative.x * 0.01)
+                    camera.rotate_x(-event.relative.y * 0.01)
+        
+        - Virtual joystick for movement
+          add-on: "Virtual Joystick by MarcinZakrzewski"
+      
+      Day_3_UI_Scaling:
+        - Responsive UI for different screen sizes
+        - Touch-friendly button sizes
+        - Readable text on small screens
+      
+      Day_4_Memory:
+        - Monitor RAM usage
+        - Unload distant assets
+        - Use object pooling for bullets/effects
+      
+      Day_5_Testing:
+        - Test on iOS simulator
+        - Profile on real device
+        - Optimize based on results
+
+  # ============================================
+  # PHASE 5: iOS BUILD & DEPLOYMENT (Week 9)
+  # ============================================
+  Phase_5_iOS_Build:
+    Week_9:
+      Day_1_Export_Setup:
+        Step_1_Install_Templates:
+          - Go to: Project > Project Settings > Export
+          - Click "Add Preset" > iOS
+          - Download iOS export templates
+          
+        Step_2_Apple_Development:
+          - Register Apple Developer Account ($99/year)
+          - Or use free tier (limited distribution)
+          - Create App ID in Apple Developer Portal
+          - Create Certificates and Provisioning Profiles
+        
+        Step_3_Xcode_Setup:
+          command: "xcode-select --install"
+          verify: "xcode-select --print-path"
+      
+      Day_2_3_Configure_Export:
+        In_Godot_Export_Settings:
+          - Bundle Identifier: "com.yourname.yourgame"
+          - Version: "1.0.0"
+          - Supported Devices: "iPhone, iPad"
+          - Orientation: "Landscape or Portrait"
+          - Icon: "1024x1024 PNG"
+          - Splash screen: "Optional"
+        
+        iOS_Specific:
+          - Team ID: "Your Apple Team ID"
+          - Code Sign Identity: "Select your certificate"
+          - Provisioning Profile: "Select your profile"
+      
+      Day_4_Export_Project:
+        Step_1_Export:
+          - In Godot: Project > Export > iOS
+          - Click "Export Project"
+          - Choose destination folder
+          - Wait for build to complete (5-10 minutes)
+          
+        Step_2_Output:
+          - Creates .xcodeproj folder
+          - Contains all source files
+          - Ready for Xcode compilation
+      
+      Day_5_Build_IPA:
+        In_Xcode:
+          Step_1_Open:
+            - Open exported .xcodeproj file in Xcode
+            - Set build target to "Generic iOS Device"
+            - Select your team in Signing & Capabilities
+          
+          Step_2_Build:
+            command: "Product > Build (Cmd + B)"
+            wait: "2-5 minutes depending on project size"
+          
+          Step_3_Archive:
+            command: "Product > Archive (Cmd + Shift + K)"
+            creates: ".xcarchive file"
+          
+          Step_4_Export_IPA:
+            - From Archives window, click "Distribute App"
+            - Choose "Ad Hoc" or "Development"
+            - Select provisioning profile
+            - Export to disk
+            - Creates .ipa file (your executable)
+
+  # ============================================
+  # PHASE 6: TESTING & DISTRIBUTION (Week 10)
+  # ============================================
+  Phase_6_Testing:
+    Week_10:
+      Day_1_2_TestFlight:
+        - Upload .ipa to TestFlight (Apple's testing platform)
+        - Invite testers via email
+        - Gather feedback
+        - Iterate on fixes
+      
+      Day_3_Device_TESTING:
+        Option_1_Personal_Device:
+          - Use Xcode to install directly
+          - Command: "Product > Run (Cmd + R)"
+          - Deploy to connected iPhone/iPad
+        
+        Option_2_Sideload:
+          - Use Altstore or Sideloadly
+          - Install .ipa file on device
+          - Install signing certificate
+          - Refresh periodically
+      
+      Day_4_5_Bug_Fixes:
+        - Monitor crash logs
+        - Fix iOS-specific issues
+        - Optimize further if needed
+
+  # ============================================
+  # PHASE 7: OPTIONAL - APP STORE (Week 11-12)
+  # ============================================
+  Phase_7_AppStore:
+    Week_11_12:
+      Prerequisites:
+        - Game must be original content
+        - No copyrighted music/assets without license
+        - Age rating (ESRB/PEGI)
+        - Privacy policy
+      
+      Submission_Process:
+        - Create App Store Connect account
+        - Fill in app information
+        - Add screenshots (5-10 per device)
+        - Write compelling description
+        - Submit for review (24-48 hours)
+        - If approved, your game goes live
+      
+      Post_Launch:
+        - Monitor user reviews
+        - Push updates regularly
+        - Add new features
+        - Market on social media
+
+  # ============================================
+  # RESOURCE LINKS
+  # ============================================
+  Resources:
+    Engine_Tutorials:
+      - Godot Official Docs: "https://docs.godotengine.org"
+      - Godot 4 YouTube: "GDQuest Channel (free complete course)"
+      - Unity Learn: "https://learn.unity.com"
+    
+    Asset_Sources:
+      - Poly Haven: "https://polyhaven.com" (Free 3D models + textures)
+      - Sketchfab: "https://sketchfab.com" (Filter: Free + Downloadable)
+      - OpenGameArt: "https://opengameart.org"
+      - Kenney.nl: "https://kenney.nl" (Game-ready assets)
+    
+    Audio:
+      - Freepik: "https://freepik.com" (Sounds)
+      - Pixabay: "https://pixabay.com" (Music + SFX)
+      - Incompetech: "https://incompetech.com" (Royalty-free music)
+    
+    iOS_Development:
+      - Apple Developer Docs: "https://developer.apple.com/documentation"
+      - Ray Wenderlich iOS: "https://www.raywenderlich.com" (Paid but excellent)
+      - Hacking with Swift: "https://www.hackingwithswift.com" (Free Swift tutorials)
+    
+    Learning_Platforms:
+      - Udemy: "Game development courses ($10-15 sales)"
+      - Coursera: "Game design specialization"
+      - YouTube: "Full game development playlists"
+
+  # ============================================
+  # KEY COMMANDS QUICK REFERENCE
+  # ============================================
+  Commands:
+    Godot:
+      run_game: "F5"
+      debug: "F6"
+      pause: "F7"
+      profiler: "Debug > Monitor"
+      export: "Project > Export > Select Preset > Export"
+    
+    Xcode:
+      build: "Cmd + B"
+      run: "Cmd + R"
+      archive: "Cmd + Shift + K"
+      stop: "Cmd + ."
+      clean: "Shift + Cmd + K"
+    
+    Git:
+      init: "git init"
+      commit: "git commit -m 'message'"
+      push: "git push origin main"
+      clone: "git clone <repo-url>"
+
+  # ============================================
+  # SUCCESS CHECKLIST
+  # ============================================
+  Success_Metrics:
+    Core_Gameplay:
+      - Player can move and look around ✓
+      - Combat system works ✓
+      - NPCs patrol and interact ✓
+      - Inventory system functional ✓
+    
+    World:
+      - At least 10 explorable locations ✓
+      - Varied terrain and obstacles ✓
+      - Physics working correctly ✓
+    
+    Polish:
+      - Main menu ✓
+      - Pause menu ✓
+      - Settings screen ✓
+      - Sound effects present ✓
+    
+    Mobile:
+      - Runs at 60 FPS ✓
+      - Touch controls intuitive ✓
+      - UI properly scaled ✓
+      - No crashes on iOS device ✓
+    
+    Build:
+      - .ipa file successfully created ✓
+      - Installs on iOS device ✓
+      - Signed with valid certificate ✓
+
+  # ============================================
+  # TROUBLESHOOTING
+  # ============================================
+  Common_Issues:
+    "Game crashes on iOS":
+      solution: "Check Xcode console for errors, optimize graphics, reduce draw calls"
+    
+    "Touch controls not responding":
+      solution: "Verify InputMap in Godot, add InputEventScreenDrag handler"
+    
+    "Low FPS on device":
+      solution: "Use Xcode Instruments to profile, reduce texture resolution, disable unnecessary effects"
+    
+    "IPA file won't sign":
+      solution: "Check Team ID matches, verify certificate is valid, ensure BundleID is correct"
+    
+    "App won't install on device":
+      solution: "Check provisioning profile, verify UDID of device, ensure free storage space"
+
+  Notes: |
+    This is your complete learning path from zero to iOS game.
+    You're not copying anything - you're building YOUR game.
+    Focus on learning, not on recreating existing games.
+    Every mechanic you build yourself is a skill you'll keep forever.
+    Good luck! 🚀
